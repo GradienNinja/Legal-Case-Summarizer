@@ -9,11 +9,10 @@ nltk.download('punkt')
 app = Flask(__name__)
 
 # ---------------- Models ----------------
-# Use a smaller model if RAM is limited
 summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
 embedder = SentenceTransformer('all-MiniLM-L6-v2')
 
-# Premium tokens (optional)
+# Optional premium tokens
 VALID_TOKENS = ["TEST123", "EARLYBIRD"]
 
 # ---------------- Helper Functions ----------------
@@ -87,7 +86,7 @@ def process():
     question = request.form.get('question', '').strip()
     token_input = request.form.get('token', '').strip()
 
-    # Check for file upload
+    # Check file upload
     if 'case_file' in request.files and request.files['case_file'].filename != '':
         f = request.files['case_file']
         temp_path = f"/tmp/{f.filename}"
