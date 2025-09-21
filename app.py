@@ -1,81 +1,63 @@
 import streamlit as st
-from summarize import summarize_text, highlight_keywords
-import PyPDF2
+from transformers import pipeline
+from PyPDF2 import PdfReader
 import docx
-import os
 
-# Page configuration
-st.set_page_config(page_title="Legal Case Summarizer", layout="wide", initial_sidebar_state="expanded")
+# Load summarizer once (cached)
+@st.cache_resource
+def load_summarizer():
+    return pipeline("summarization", model="facebook/bart-large-cnn")
 
-# Sidebar branding & settings
-logo_path = "assets/logo.png"
-if os.path.exists(logo_path):
-    st.sidebar.image(logo_path, width=150)
-else:
-    st.sidebar.markdown("### ⚖️ Legal Case Summarizer")
+summarizer = load_summarizer()
 
-dark_mode = st.sidebar.checkbox("Dark Mode")
+st.set_page_config(page_title="Legal Case Summarizer", layout="wide")
 
-# CSS for dark mode
-if dark_mode:
-    st.markdown("""
-        <style>
-        .css-1d391kg {background-color: #1E1E1E;}
-        .css-18ni7ap {color: #ffffff;}
-        </style>
-    """, unsafe_allow_html=True)
+st.title("⚖️ Legal Case Summarizer")
+st.markdown(
+    "This tool provides automated summaries for educational purposes "
+    "and does not replace professional legal advice."
+)
 
-# Tabs for case types
+# Tabs
 tabs = st.tabs(["Civil Cases", "Criminal Cases", "Other Cases"])
-tab_titles = ["Civil Cases", "Criminal Cases", "Other Cases"]
 
-for i, tab in enumerate(tabs):
+for tab, case_type in zip(tabs, ["Civil", "Criminal", "Other"]):
     with tab:
-        st.subheader(f"📁 {tab_titles[i]} Summarizer")
+        st.header(f"{case_type} Cases Summarizer")
         uploaded_file = st.file_uploader(
-            f"Upload your legal case ({tab_titles[i]})",
-            type=["txt", "pdf", "docx"],
-            key=i
+            f"Upload your {case_type.lower()} case", type=["txt", "pdf", "docx"], key=case_type
         )
-        sent_count = st.slider(
-            "Number of summary sentences",
-            min_value=3,
-            max_value=15,
-            value=5,
-            key=f"slider{i}"
+        num_sentences = st.slider(
+            "Number of summary sentences", 1, 10, 5, key=f"slider_{case_type}"
         )
 
         if uploaded_file:
-            text = ""
-            # PDF support
-            if uploaded_file.type == "application/pdf":
-                reader = PyPDF2.PdfReader(uploaded_file)
-                for page in reader.pages:
-                    text += page.extract_text()
-            # DOCX support
-            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                doc = docx.Document(uploaded_file)
-                for para in doc.paragraphs:
-                    text += para.text + "\n"
-            # TXT support
-            else:
+            # Extract text depending on file type
+            if uploaded_file.name.endswith(".txt"):
                 text = uploaded_file.read().decode("utf-8")
+            elif uploaded_file.name.endswith(".pdf"):
+                reader = PdfReader(uploaded_file)
+                text = " ".join([page.extract_text() for page in reader.pages if page.extract_text()])
+            elif uploaded_file.name.endswith(".docx"):
+                doc = docx.Document(uploaded_file)
+                text = " ".join([para.text for para in doc.paragraphs])
+            else:
+                st.error("Unsupported file format.")
+                text = ""
 
-            # Summarization
-            summary = summarize_text(text, sentences_count=sent_count)
-            highlighted_summary = highlight_keywords(summary)
+            if text:
+                st.subheader("📑 Extracted Text")
+                st.text_area("Preview", text[:2000] + ("..." if len(text) > 2000 else ""), height=200)
 
-            st.subheader("📄 Summary")
-            st.markdown(highlighted_summary)
-
-            # Download button
-            st.download_button(
-                label="Download Summary as TXT",
-                data=summary,
-                file_name="legal_case_summary.txt",
-                mime="text/plain"
-            )
-
-# Footer disclaimer
-st.markdown("---")
-st.write("⚠️ Disclaimer: This tool provides automated summaries for educational purposes and does not replace professional legal advice.")
+                # Summarize
+                st.subheader("⚡ Summary")
+                try:
+                    summary = summarizer(
+                        text,
+                        max_length=150,
+                        min_length=40,
+                        do_sample=False
+                    )
+                    st.success(summary[0]['summary_text'])
+                except Exception as e:
+                    st.error(f"Error during summarization: {e}")
