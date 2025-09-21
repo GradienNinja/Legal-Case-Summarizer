@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Legal Case Summarizer</title>
+<style>
+body {font-family: Arial, sans-serif; background: #f0f2f5; margin:0; padding:0;}
+.container {max-width: 900px; margin: 30px auto; padding: 20px; background: #fff; border-radius:10px;}
+h1 {text-align:center; color:#1f2937;}
+textarea {width:100%; height:150px; margin:10px 0; padding:10px; border-radius:8px; border:1px solid #ccc;}
+button {padding:10px 20px; background:#2563eb; color:white; border:none; border-radius:8px; cursor:pointer;}
+button:hover {background:#1d4ed8;}
+.output-box {background:#f9fafb; padding:10px; border-radius:8px; border:1px solid #d1d5db; min-height:80px; white-space: pre-wrap; margin:10px 0;}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>⚖️ Legal Case Summarizer</h1>
+<form id="caseForm">
+<label>Paste Case Text:</label>
+<textarea name="case_text" placeholder="Paste judgment here..."></textarea>
+<label>Or Upload PDF:</label>
+<input type="file" name="case_file" accept=".pdf">
+<label>Ask a Question (Optional):</label>
+<textarea name="question" placeholder="e.g., What was the main issue?"></textarea>
+<button type="submit">Summarize & Answer</button>
+</form>
+<h3>Summary</h3>
+<div id="summary" class="output-box"></div>
+<h3>Key Issues / Lines</h3>
+<div id="issues" class="output-box"></div>
+<h3>Answer</h3>
+<div id="answer" class="output-box"></div>
+</div>
+
+<script>
+document.getElementById("caseForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const res = await fetch('/process', {method:'POST', body: formData});
+    const data = await res.json();
+    document.getElementById("summary").innerText = data.summary;
+    document.getElementById("issues").innerText = data.issues;
+    document.getElementById("answer").innerText = data.answer;
+});
+</script>
+</body>
+</html>
