@@ -1,0 +1,6 @@
+flask==2.3.5
+transformers==4.43.0
+torch==2.2.0
+sentence-transformers==2.2.2
+pdfplumber==0.10.2
+nltk==3.8.1
