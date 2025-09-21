@@ -8,11 +8,15 @@ nltk.download('punkt')
 
 app = Flask(__name__)
 
-# Models
+# ---------------- Models ----------------
+# Use a smaller model if RAM is limited
 summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
 embedder = SentenceTransformer('all-MiniLM-L6-v2')
 
-# Helper functions
+# Premium tokens (optional)
+VALID_TOKENS = ["TEST123", "EARLYBIRD"]
+
+# ---------------- Helper Functions ----------------
 def extract_text_from_pdf(file_path):
     text = ""
     try:
@@ -72,7 +76,7 @@ def answer_question_from_text(text, question, top_k=3):
     answers = [sents[h['corpus_id']] for h in hits]
     return "\n\n".join(answers)
 
-# Routes
+# ---------------- Routes ----------------
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -81,18 +85,26 @@ def home():
 def process():
     text = request.form.get('case_text', '').strip()
     question = request.form.get('question', '').strip()
+    token_input = request.form.get('token', '').strip()
 
-    # If file uploaded
+    # Check for file upload
     if 'case_file' in request.files and request.files['case_file'].filename != '':
         f = request.files['case_file']
-        text_from_pdf = extract_text_from_pdf(f)
+        temp_path = f"/tmp/{f.filename}"
+        f.save(temp_path)
+        text_from_pdf = extract_text_from_pdf(temp_path)
         if text_from_pdf:
             text = text_from_pdf
 
     if not text:
         return jsonify({"summary": "⚠️ No text found.", "issues": "", "answer": ""})
 
-    summary = summarize_case(text)
+    # Limit summary length for free users
+    summary_length = 180
+    if token_input in VALID_TOKENS:
+        summary_length = 400
+
+    summary = summarize_case(text, max_len=summary_length)
     issues = simple_issue_extractor(text)
     issues_text = "\n".join(f"• {i.strip()}" for i in issues)
     answer = answer_question_from_text(text, question) if question else ""
